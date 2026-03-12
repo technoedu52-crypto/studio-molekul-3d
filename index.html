@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Studio Molekul 3D</title>
+    <!-- Favicon Atom -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2215%22 fill=%22%230ea5e9%22/><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22none%22 stroke=%22%2338bdf8%22 stroke-width=%222%22 opacity=%220.5%22/><ellipse cx=%2250%22 cy=%2250%22 rx=%2245%22 ry=%2220%22 fill=%22none%22 stroke=%22%2338bdf8%22 stroke-width=%222%22 transform=%22rotate(45 50 50)%22/><ellipse cx=%2250%22 cy=%2250%22 rx=%2245%22 ry=%2220%22 fill=%22none%22 stroke=%22%2338bdf8%22 stroke-width=%222%22 transform=%22rotate(-45 50 50)%22/></svg>">
+    <!-- Tailwind CSS untuk styling UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls untuk navigasi 3D -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111827;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            touch-action: none;
+        }
+
+        /* Layer UI Utama */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1rem;
+            z-index: 10;
+        }
+
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(31, 41, 55, 0.5);
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4B5563;
+            border-radius: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6B7280;
+        }
+
+        /* Tweak untuk tombol AR kustom */
+        #ARButton {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            background-color: #0ea5e9;
+            border-radius: 12px;
+            font-weight: bold;
+            padding: 12px 24px;
+            color: white;
+            border: 1px solid #38bdf8;
+            box-shadow: 0 10px 15px -3px rgba(14, 165, 233, 0.5);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #ARButton:hover {
+            background-color: #0284c7;
+        }
+
+        /* Developer Info UI */
+        #dev-info-container {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            pointer-events: none;
+        }
+
+        #info-btn {
+            width: 44px;
+            height: 44px;
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #38bdf8;
+            font-family: 'serif';
+            font-style: italic;
+            font-weight: bold;
+            font-size: 20px;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #info-btn:hover {
+            transform: rotate(15deg) scale(1.1);
+            background: #0ea5e9;
+            color: white;
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
+        }
+
+        #dev-card {
+            margin-bottom: 12px;
+            width: 280px;
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transform: translateY(20px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: auto;
+        }
+
+        #dev-card.active {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #dev-card .profile-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #0ea5e9;
+            margin: 0 auto 15px;
+            display: block;
+            object-fit: cover;
+            background: #1f2937;
+        }
+
+        #dev-card h3 {
+            color: white;
+            font-size: 16px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+
+        #dev-card p {
+            color: #9ca3af;
+            font-size: 11px;
+            text-align: center;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .social-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #000000;
+            color: white;
+            padding: 10px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .social-link:hover {
+            background: #111111;
+            transform: scale(1.02);
+        }
+
+        /* Mobile Layout Adjustments */
+        @media (max-width: 768px) {
+            #main-menu {
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                max-height: 60vh !important;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                margin: 0;
+                border-radius: 24px 24px 0 0;
+                padding-bottom: env(safe-area-inset-bottom, 20px);
+                z-index: 60;
+            }
+
+            #main-menu.minimized {
+                transform: translateY(calc(100% - 60px));
+                background: rgba(17, 24, 39, 0.95);
+            }
+
+            #ui-layer {
+                padding: 0.75rem;
+            }
+
+            #ARButton {
+                bottom: 80px;
+                /* Di atas menu saat muncul */
+                scale: 0.9;
+                transition: all 0.3s;
+                white-space: nowrap;
+                z-index: 100;
+            }
+
+            .minimized~#ARButton,
+            #main-menu.minimized+#ARButton {
+                bottom: 80px;
+            }
+        }
+    </style>
+</head>
+
+<body class="text-white antialiased select-none">
+
+    <!-- Container untuk 3D WebGL -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Utama (Viewer Mode) -->
+    <div id="ui-layer" class="transition-opacity duration-300">
+        <!-- Header -->
+        <header
+            class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pointer-events-auto w-full">
+            <div class="bg-gray-900/85 backdrop-blur-md p-4 rounded-2xl border border-gray-700 shadow-xl flex-1 w-full md:w-auto transition-all"
+                id="main-header">
+                <div class="flex justify-between items-center">
+                    <h1
+                        class="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-teal-300">
+                        🧬 Studio Molekul
+                    </h1>
+                    <button onclick="toggleVisualMode()"
+                        class="md:hidden bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 shadow-md active:scale-95">
+                        <span id="visual-icon-mobile">🔴</span>
+                    </button>
+                </div>
+                <p class="text-xs md:text-sm text-gray-400 mt-1" id="molecule-desc">Pilih molekul untuk melihat bentuk
+                    3D.</p>
+            </div>
+
+            <div class="flex gap-2 w-full md:w-auto justify-end">
+                <button onclick="toggleVisualMode()"
+                    class="hidden md:flex bg-gray-900/85 backdrop-blur-md hover:bg-gray-800 border border-gray-700 text-sm px-4 py-3 rounded-xl transition-all shadow-xl items-center gap-2 active:scale-95">
+                    <span id="visual-icon-desktop">🔴</span>
+                    <span id="visual-text-desktop">Model: Bola & Tongkat</span>
+                </button>
+                <div
+                    class="hidden lg:flex bg-gray-900/85 backdrop-blur-md p-3 rounded-xl border border-gray-700 text-xs text-gray-300 space-x-4 shadow-xl">
+                    <div class="flex items-center"><span class="text-lg mr-1.5">👆</span> Putar</div>
+                    <div class="flex items-center"><span class="text-lg mr-1.5">✌️</span> Geser</div>
+                    <div class="flex items-center"><span class="text-lg mr-1.5">🤏</span> Zoom</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Menu Pilihan Molekul & Mode -->
+        <div class="w-full md:w-72 bg-gray-900/85 backdrop-blur-md border border-gray-700 rounded-2xl p-4 pointer-events-auto mt-auto md:mt-0 shadow-2xl overflow-y-auto max-h-[45vh] md:max-h-[calc(100vh-8rem)] overscroll-contain relative"
+            id="main-menu">
+            <!-- Mobile Toggle Bar -->
+            <div class="md:hidden flex flex-col items-center mb-4 cursor-pointer active:opacity-70"
+                onclick="toggleMenu()">
+                <div class="w-12 h-1 bg-gray-600 rounded-full mb-2"></div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-sky-400 uppercase tracking-widest" id="toggle-text">Sembunyikan
+                        Menu</span>
+                    <span id="toggle-icon">▼</span>
+                </div>
+            </div>
+
+            <div id="molecule-buttons" class="space-y-1">
+                <!-- Di-generate via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Mode Kuis -->
+    <div id="quiz-ui"
+        class="absolute top-0 left-0 w-full h-full pointer-events-none z-40 hidden flex-col justify-between p-4">
+        <div
+            class="pointer-events-auto bg-gray-900/90 backdrop-blur-md p-4 rounded-2xl border border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.2)] text-center w-full max-w-md mx-auto mt-4">
+            <h2 class="text-amber-400 font-bold text-xl mb-1">🤔 Mode Kuis</h2>
+            <p class="text-gray-200 text-sm" id="quiz-question">Molekul apakah ini?</p>
+            <p class="text-xs text-amber-500 mt-2 font-bold hidden" id="quiz-feedback"></p>
+        </div>
+        <div class="pointer-events-auto w-full max-w-md mx-auto grid grid-cols-2 gap-2 mb-20" id="quiz-options">
+            <!-- Tombol kuis -->
+        </div>
+        <button onclick="exitQuiz()"
+            class="pointer-events-auto absolute top-6 right-6 bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-colors">Keluar
+            Kuis</button>
+    </div>
+
+    <!-- UI Mode Rakit (Builder) -->
+    <div id="builder-ui"
+        class="absolute top-0 left-0 w-full h-full pointer-events-none z-40 hidden flex-col justify-between p-4">
+        <div
+            class="pointer-events-auto bg-gray-900/90 backdrop-blur-md p-3 rounded-2xl border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)] text-center w-full max-w-md mx-auto mt-4">
+            <h2 class="text-emerald-400 font-bold text-lg">🛠️ Mode Merakit</h2>
+            <p class="text-gray-300 text-xs mt-1">Pilih unsur di bawah, lalu <b>klik kanvas</b> atau <b>klik atom
+                    lain</b> untuk menyambung.</p>
+        </div>
+
+        <div
+            class="pointer-events-auto bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-2xl p-3 w-full max-w-md mx-auto flex flex-wrap justify-center gap-2 mb-20 shadow-xl">
+            <!-- Palet Unsur -->
+            <button onclick="setBuilderElement('C')" id="build-btn-C"
+                class="build-elem border-2 border-emerald-500 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-bold w-14">C</button>
+            <button onclick="setBuilderElement('H')" id="build-btn-H"
+                class="build-elem border-2 border-transparent bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-bold w-14">H</button>
+            <button onclick="setBuilderElement('O')" id="build-btn-O"
+                class="build-elem border-2 border-transparent bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-bold w-14">O</button>
+            <button onclick="setBuilderElement('N')" id="build-btn-N"
+                class="build-elem border-2 border-transparent bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-bold w-14">N</button>
+            <div class="w-full h-px bg-gray-700 my-1"></div>
+            <button onclick="clearBuilder()"
+                class="bg-amber-600/80 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex-1">Bersihkan</button>
+            <button onclick="exitBuilder()"
+                class="bg-red-600/80 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex-1">Keluar</button>
+        </div>
+    </div>
+
+    <!-- UI Mode Pilih Perbandingan (Kustom) -->
+    <div id="compare-ui"
+        class="absolute top-0 left-0 w-full h-full pointer-events-none z-40 hidden flex-col justify-center items-center p-4 backdrop-blur-sm bg-gray-900/50 transition-opacity">
+        <div
+            class="pointer-events-auto bg-gray-900/95 border border-sky-500/50 p-6 rounded-2xl shadow-[0_0_25px_rgba(56,189,248,0.2)] w-full max-w-sm text-center transform scale-100">
+            <h2 class="text-sky-400 font-bold text-xl mb-5">⚖️ Bandingkan Molekul</h2>
+
+            <div class="flex flex-col gap-4 text-left">
+                <div>
+                    <label class="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1.5 ml-1">Molekul
+                        Kiri</label>
+                    <select id="compare-left"
+                        class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-xl focus:ring-sky-500 focus:border-sky-500 block p-3 outline-none transition-colors cursor-pointer appearance-none shadow-inner">
+                        <!-- Pilihan dibuat otomatis oleh JS -->
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1.5 ml-1">Molekul
+                        Kanan</label>
+                    <select id="compare-right"
+                        class="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-xl focus:ring-sky-500 focus:border-sky-500 block p-3 outline-none transition-colors cursor-pointer appearance-none shadow-inner">
+                        <!-- Pilihan dibuat otomatis oleh JS -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-7">
+                <button onclick="exitCustomCompare()"
+                    class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl text-sm font-bold transition-colors active:scale-95">Batal</button>
+                <button onclick="executeCustomCompare()"
+                    class="flex-1 bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg transition-colors active:scale-95">Tampilkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Petunjuk Kontrol Mobile (Hanya di Viewer Mode) -->
+    <div id="mobile-hints"
+        class="md:hidden absolute bottom-4 right-4 bg-gray-900/85 backdrop-blur-md p-2.5 rounded-xl border border-gray-700 pointer-events-auto z-20 flex flex-col gap-2 text-[10px] text-gray-300 shadow-xl">
+        <div class="flex items-center gap-1"><span>👆</span> Putar</div>
+        <div class="flex items-center gap-1"><span>🤏</span> Zoom/Geser</div>
+    </div>
+
+    <!-- Layer Anotasi -->
+    <div id="annotation-layer"
+        class="absolute top-0 left-0 w-full h-full pointer-events-none z-30 transition-opacity duration-300 opacity-0">
+        <svg id="annotation-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none">
+            <line id="annotation-line" x1="0" y1="0" x2="0" y2="0" stroke="#38bdf8" stroke-width="1.5"
+                stroke-dasharray="3" />
+            <circle id="annotation-dot" cx="0" cy="0" r="4" fill="#38bdf8" class="animate-pulse" />
+        </svg>
+        <div id="annotation-box"
+            class="absolute bg-gray-900/95 border border-sky-500/50 p-4 rounded-xl shadow-[0_0_20px_rgba(56,189,248,0.2)] w-[250px] backdrop-blur-md pointer-events-auto">
+            <button onclick="hideAnnotation()"
+                class="absolute top-2 right-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500 rounded-full w-6 h-6 flex items-center justify-center transition-colors">✕</button>
+            <h3 id="annotation-title"
+                class="text-sky-400 font-bold text-base mb-2 border-b border-sky-500/30 pb-1 pr-6"></h3>
+            <p id="annotation-text" class="text-gray-300 text-xs leading-relaxed min-h-[60px]"></p>
+        </div>
+    </div>
+
+    <!-- Developer Info UI -->
+    <div id="dev-info-container">
+        <div id="dev-card">
+            <img src="https://ik.imagekit.io/zq03mwcix/IMG_20220810_084634-removebg-preview.png?updatedAt=1770201529018"
+                alt="Muhammad Yandri" class="profile-img">
+            <h3>Muhammad Yandri, S.Pd., M.Pd.</h3>
+            <p>Guru Pejuang Digital</p>
+            <a href="https://www.tiktok.com/@ppafif?lang=id-ID" target="_blank" class="social-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.12 4.18 1.58v3.83c-1.88-.07-3.7-.73-5.13-2.01-.1-.09-.16-.18-.28-.31V15c.02 1.94-.97 3.88-2.61 4.93-1.63 1.05-3.8 1.19-5.54.34-1.74-.85-2.92-2.73-2.97-4.67-.05-1.94.97-3.88 2.61-4.93 1.63-1.05 3.8-1.19 5.54-.34.19.09.38.2.56.32V1.5c.02-1.48-.02-1.48-.02-1.48Z" />
+                </svg>
+                TikTok @ppafif
+            </a>
+        </div>
+        <button id="info-btn" onclick="toggleDevCard()">i</button>
+    </div>
+
+    <script>
+        // --- DATA MOLEKUL ---
+        const ELEMENTS = {
+            'H': { color: 0xffffff, radius: 0.35, name: 'Hidrogen', desc: 'Unsur paling ringan. Memiliki 1 proton dan 1 elektron. Sangat mudah terbakar.' },
+            'C': { color: 0x222222, radius: 0.65, name: 'Karbon', desc: 'Unsur dasar kehidupan, mampu membentuk rantai molekul yang panjang dan stabil.' },
+            'O': { color: 0xff1111, radius: 0.55, name: 'Oksigen', desc: 'Gas reaktif yang menyokong pembakaran dan sangat krusial bagi pernapasan sel.' },
+            'N': { color: 0x2222ff, radius: 0.60, name: 'Nitrogen', desc: 'Gas yang membentuk 78% atmosfer Bumi. Komponen esensial untuk protein.' },
+            'S': { color: 0xddcc00, radius: 0.70, name: 'Sulfur', desc: 'Unsur non-logam kuning. Sering ditemukan di daerah vulkanik dan mata air panas.' },
+            'Cl': { color: 0x00ff00, radius: 0.75, name: 'Klorin', desc: 'Halogen kuning-hijau reaktif. Banyak digunakan sebagai agen disinfektan air.' },
+            'F': { color: 0x00ffff, radius: 0.50, name: 'Fluorin', desc: 'Unsur paling reaktif dan elektronegatif di tabel periodik kimia.' },
+            'P': { color: 0xff8800, radius: 0.75, name: 'Fosfor', desc: 'Unsur reaktif yang berperan sentral dalam menyimpan energi sel biologi (ATP).' },
+            'B': { color: 0xffb5b5, radius: 0.60, name: 'Boron', desc: 'Metaloid keras yang banyak digunakan dalam pembuatan kaca Pyrex tahan panas.' },
+            'Br': { color: 0xa52a2a, radius: 0.85, name: 'Bromin', desc: 'Cairan cokelat kemerahan reaktif pada suhu kamar. Digunakan dalam berbagai aplikasi industri.' },
+            'I': { color: 0x9400d3, radius: 0.95, name: 'Iodin', desc: 'Padatan ungu kehitaman yang menyublim menjadi gas ungu. Penting bagi kesehatan manusia.' }
+        };
+
+        const MOLECULES = {
+            // --- MOLEKUL UNSUR ---
+            'o2': { category: 'Unsur', name: 'Oksigen (O₂)', desc: 'Molekul diatomik esensial bagi kehidupan.', atoms: [{ elem: 'O', pos: [-0.6, 0, 0] }, { elem: 'O', pos: [0.6, 0, 0] }], bonds: [[0, 1]] },
+            'n2': { category: 'Unsur', name: 'Nitrogen (N₂)', desc: 'Gas paling melimpah di atmosfer Bumi.', atoms: [{ elem: 'N', pos: [-0.55, 0, 0] }, { elem: 'N', pos: [0.55, 0, 0] }], bonds: [[0, 1]] },
+            'h2': { category: 'Unsur', name: 'Hidrogen (H₂)', desc: 'Molekul terkecil dan paling ringan.', atoms: [{ elem: 'H', pos: [-0.37, 0, 0] }, { elem: 'H', pos: [0.37, 0, 0] }], bonds: [[0, 1]] },
+            'o3': { category: 'Unsur', name: 'Ozon (O₃)', desc: 'Melindungi Bumi dari radiasi UV berbahaya.', atoms: [{ elem: 'O', pos: [0, 0.4, 0] }, { elem: 'O', pos: [1.1, -0.3, 0] }, { elem: 'O', pos: [-1.1, -0.3, 0] }], bonds: [[0, 1], [0, 2]] },
+            'cl2': { category: 'Unsur', name: 'Klorin (Cl₂)', desc: 'Gas kuning-hijau dengan bau menyengat.', atoms: [{ elem: 'Cl', pos: [-1.0, 0, 0] }, { elem: 'Cl', pos: [1.0, 0, 0] }], bonds: [[0, 1]] },
+            'f2': { category: 'Unsur', name: 'Fluorin (F₂)', desc: 'Gas halogen yang sangat reaktif.', atoms: [{ elem: 'F', pos: [-0.7, 0, 0] }, { elem: 'F', pos: [0.7, 0, 0] }], bonds: [[0, 1]] },
+            'br2': { category: 'Unsur', name: 'Bromin (Br₂)', desc: 'Cairan merah-cokelat yang mudah menguap.', atoms: [{ elem: 'Br', pos: [-1.15, 0, 0] }, { elem: 'Br', pos: [1.15, 0, 0] }], bonds: [[0, 1]] },
+            'i2': { category: 'Unsur', name: 'Iodin (I₂)', desc: 'Padatan ungu kehitaman yang menyublim.', atoms: [{ elem: 'I', pos: [-1.35, 0, 0] }, { elem: 'I', pos: [1.35, 0, 0] }], bonds: [[0, 1]] },
+
+            // --- MOLEKUL SENYAWA ---
+            'h2o': { category: 'Senyawa', name: 'Air (H₂O)', desc: 'Bentuk V (Bengkok). Pelarut universal yang esensial.', atoms: [{ elem: 'O', pos: [0, 0, 0] }, { elem: 'H', pos: [0.8, -0.6, 0] }, { elem: 'H', pos: [-0.8, -0.6, 0] }], bonds: [[0, 1], [0, 2]] },
+            'co2': { category: 'Senyawa', name: 'Karbon Dioksida (CO₂)', desc: 'Bentuk Linear. Gas rumah kaca utama.', atoms: [{ elem: 'C', pos: [0, 0, 0] }, { elem: 'O', pos: [1.3, 0, 0] }, { elem: 'O', pos: [-1.3, 0, 0] }], bonds: [[0, 1], [0, 2]] },
+            'co': { category: 'Senyawa', name: 'Karbon Monoksida (CO)', desc: 'Gas beracun yang tidak berwarna dan berbau.', atoms: [{ elem: 'C', pos: [-0.6, 0, 0] }, { elem: 'O', pos: [0.6, 0, 0] }], bonds: [[0, 1]] },
+            'nh3': { category: 'Senyawa', name: 'Amonia (NH₃)', desc: 'Bentuk Trigonal Piramida. Fondasi pupuk global.', atoms: [{ elem: 'N', pos: [0, 0.3, 0] }, { elem: 'H', pos: [0, -0.4, 0.8] }, { elem: 'H', pos: [0.75, -0.4, -0.4] }, { elem: 'H', pos: [-0.75, -0.4, -0.4] }], bonds: [[0, 1], [0, 2], [0, 3]] },
+            'ch4': { category: 'Senyawa', name: 'Metana (CH₄)', desc: 'Bentuk Tetrahedral (109.5°). Komponen gas alam.', atoms: [{ elem: 'C', pos: [0, 0, 0] }, { elem: 'H', pos: [0.65, 0.65, 0.65] }, { elem: 'H', pos: [-0.65, -0.65, 0.65] }, { elem: 'H', pos: [-0.65, 0.65, -0.65] }, { elem: 'H', pos: [0.65, -0.65, -0.65] }], bonds: [[0, 1], [0, 2], [0, 3], [0, 4]] },
+            'hcl': { category: 'Senyawa', name: 'Hidrogen Klorida (HCl)', desc: 'Asam kuat yang sangat korosif (asam lambung).', atoms: [{ elem: 'Cl', pos: [-0.2, 0, 0] }, { elem: 'H', pos: [1.1, 0, 0] }], bonds: [[0, 1]] },
+            'so2': { category: 'Senyawa', name: 'Sulfur Dioksida (SO₂)', desc: 'Bentuk V (Bengkok). Penyebab hujan asam.', atoms: [{ elem: 'S', pos: [0, 0.2, 0] }, { elem: 'O', pos: [1.2, -0.5, 0] }, { elem: 'O', pos: [-1.2, -0.5, 0] }], bonds: [[0, 1], [0, 2]] },
+            'so3': { category: 'Senyawa', name: 'Sulfur Trioksida (SO₃)', desc: 'Padat namun mudah menguap, prekursor asam sulfat.', atoms: [{ elem: 'S', pos: [0, 0, 0] }, { elem: 'O', pos: [1.4, 0, 0] }, { elem: 'O', pos: [-0.7, 1.21, 0] }, { elem: 'O', pos: [-0.7, -1.21, 0] }], bonds: [[0, 1], [0, 2], [0, 3]] },
+            'no2': { category: 'Senyawa', name: 'Nitrogen Dioksida (NO₂)', desc: 'Gas cokelat kemerahan, polutan udara utama.', atoms: [{ elem: 'N', pos: [0, 0.2, 0] }, { elem: 'O', pos: [1.1, -0.4, 0] }, { elem: 'O', pos: [-1.1, -0.4, 0] }], bonds: [[0, 1], [0, 2]] },
+            'h2so4': { category: 'Senyawa', name: 'Asam Sulfat (H₂SO₄)', desc: 'Dikenal sebagai air aki, asam kuat yang sangat korosif dan vital bagi industri.', atoms: [{ elem: 'S', pos: [0, 0, 0] }, { elem: 'O', pos: [0, 1.4, 0] }, { elem: 'O', pos: [0, -1.4, 0] }, { elem: 'O', pos: [1.3, -0.4, 0.7] }, { elem: 'O', pos: [-1.3, -0.4, -0.7] }, { elem: 'H', pos: [2.1, 0, 0.7] }, { elem: 'H', pos: [-2.1, -0.8, -0.7] }], bonds: [[0, 1], [0, 2], [0, 3], [0, 4], [3, 5], [4, 6]] },
+
+            // --- MOLEKUL ORGANIK ---
+            'c2h6': { category: 'Organik', name: 'Etana (C₂H₆)', desc: 'Hidrokarbon jenuh yang ditemukan dalam gas alam.', atoms: [{ elem: 'C', pos: [-0.75, 0, 0] }, { elem: 'C', pos: [0.75, 0, 0] }, { elem: 'H', pos: [-1.2, 0.5, 0.8] }, { elem: 'H', pos: [-1.2, 0.5, -0.8] }, { elem: 'H', pos: [-1.2, -1.0, 0] }, { elem: 'H', pos: [1.2, -0.5, 0.8] }, { elem: 'H', pos: [1.2, -0.5, -0.8] }, { elem: 'H', pos: [1.2, 1.0, 0] }], bonds: [[0, 1], [0, 2], [0, 3], [0, 4], [1, 5], [1, 6], [1, 7]] },
+            'c2h4': { category: 'Organik', name: 'Etena (C₂H₄)', desc: 'Hormon pematangan tanaman dan prekursor plastik.', atoms: [{ elem: 'C', pos: [-0.67, 0, 0] }, { elem: 'C', pos: [0.67, 0, 0] }, { elem: 'H', pos: [-1.2, 0.9, 0] }, { elem: 'H', pos: [-1.2, -0.9, 0] }, { elem: 'H', pos: [1.2, 0.9, 0] }, { elem: 'H', pos: [1.2, -0.9, 0] }], bonds: [[0, 1], [0, 2], [0, 3], [1, 4], [1, 5]] },
+            'c2h2': { category: 'Organik', name: 'Etuna/Asetilena (C₂H₂)', desc: 'Gas yang digunakan untuk pengelasan suhu tinggi.', atoms: [{ elem: 'C', pos: [-0.6, 0, 0] }, { elem: 'C', pos: [0.6, 0, 0] }, { elem: 'H', pos: [-1.6, 0, 0] }, { elem: 'H', pos: [1.6, 0, 0] }], bonds: [[0, 1], [0, 2], [1, 3]] },
+            'c2h5oh': { category: 'Organik', name: 'Etanol (C₂H₅OH)', desc: 'Alkohol yang umum ditemukan dalam cairan energi.', atoms: [{ elem: 'C', pos: [-0.75, -0.2, 0] }, { elem: 'C', pos: [0.75, 0, 0] }, { elem: 'O', pos: [1.4, 1.2, 0] }, { elem: 'H', pos: [2.3, 1.1, 0] }, { elem: 'H', pos: [-1.2, 0.3, 0.8] }, { elem: 'H', pos: [-1.2, 0.3, -0.8] }, { elem: 'H', pos: [-1.2, -1.2, 0] }, { elem: 'H', pos: [1.1, -0.5, 0.8] }, { elem: 'H', pos: [1.1, -0.5, -0.8] }], bonds: [[0, 1], [1, 2], [2, 3], [0, 4], [0, 5], [0, 6], [1, 7], [1, 8]] },
+            'c6h12o6': { category: 'Organik', name: 'Glukosa (C₆H₁₂O₆)', desc: 'Sumber energi utama bagi makhluk hidup (fragmen).', atoms: [{ elem: 'C', pos: [0, 0, 0] }, { elem: 'C', pos: [1.4, 0.5, 0] }, { elem: 'C', pos: [2.1, 1.8, 0] }, { elem: 'O', pos: [1.3, 2.8, 0] }, { elem: 'C', pos: [-0.1, 2.3, 0] }, { elem: 'C', pos: [-0.8, 1.0, 0] }, { elem: 'O', pos: [-1.4, -0.1, 0] }, { elem: 'O', pos: [2.1, -0.6, 0] }, { elem: 'O', pos: [3.4, 1.6, 0] }, { elem: 'O', pos: [-0.3, 3.2, 0] }, { elem: 'O', pos: [-2.1, 1.1, 0] }, { elem: 'H', pos: [0.1, -0.8, -0.6] }, { elem: 'H', pos: [1.5, 0.7, 0.8] }], bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [0, 6], [1, 7], [2, 8], [4, 9], [5, 10]] },
+            'ch3cooh': { category: 'Organik', name: 'Asam Asetat (CH₃COOH)', desc: 'Komponen utama cuka, asam organik sederhana.', atoms: [{ elem: 'C', pos: [-0.7, 0, 0] }, { elem: 'C', pos: [0.8, 0, 0] }, { elem: 'O', pos: [1.4, 1.1, 0] }, { elem: 'O', pos: [1.4, -1.1, 0] }, { elem: 'H', pos: [2.3, -1.0, 0] }, { elem: 'H', pos: [-1.1, 0.5, 0.8] }, { elem: 'H', pos: [-1.1, 0.5, -0.8] }, { elem: 'H', pos: [-1.1, -1.0, 0] }], bonds: [[0, 1], [1, 2], [1, 3], [3, 4], [0, 5], [0, 6], [0, 7]] },
+            'c6h6': { category: 'Organik', name: 'Benzena (C₆H₆)', desc: 'Struktur Cincin Aromatik Planar (Segi Enam).', atoms: [{ elem: 'C', pos: [1.4, 0, 0] }, { elem: 'C', pos: [0.7, 1.21, 0] }, { elem: 'C', pos: [-0.7, 1.21, 0] }, { elem: 'C', pos: [-1.4, 0, 0] }, { elem: 'C', pos: [-0.7, -1.21, 0] }, { elem: 'C', pos: [0.7, -1.21, 0] }, { elem: 'H', pos: [2.4, 0, 0] }, { elem: 'H', pos: [1.2, 2.08, 0] }, { elem: 'H', pos: [-1.2, 2.08, 0] }, { elem: 'H', pos: [-2.4, 0, 0] }, { elem: 'H', pos: [-1.2, -2.08, 0] }, { elem: 'H', pos: [1.2, -2.08, 0] }], bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [0, 6], [1, 7], [2, 8], [3, 9], [4, 10], [5, 11]] },
+
+            // --- MAKROMOLEKUL (FRAGMEN REPRESENTATIF) ---
+            'protein': { category: 'Makromolekul', name: 'Protein (Fragmen)', desc: 'Unit dasar kehidupan, tersusun dari asam amino.', atoms: [{ elem: 'N', pos: [-2, 0, 0] }, { elem: 'C', pos: [-0.7, 0, 0] }, { elem: 'C', pos: [0, 1.3, 0] }, { elem: 'O', pos: [-0.5, 2.4, 0] }, { elem: 'N', pos: [1.3, 1.2, 0] }, { elem: 'C', pos: [2, 0, 0] }, { elem: 'C', pos: [3.3, -0.1, 0] }, { elem: 'O', pos: [4, -1.2, 0] }], bonds: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 6], [6, 7]] },
+            'dna': { category: 'Makromolekul', name: 'DNA (Double Helix Fragment)', desc: 'Molekul pembawa informasi genetik.', atoms: [{ elem: 'P', pos: [0, 0, 0] }, { elem: 'O', pos: [1.1, 0.8, 0] }, { elem: 'C', pos: [2.4, 0, 0] }, { elem: 'C', pos: [3, -1.3, 0] }, { elem: 'O', pos: [1.9, -2.1, 0] }, { elem: 'C', pos: [0.6, -1.5, 0] }, { elem: 'N', pos: [4.4, -1.3, 0] }, { elem: 'P', pos: [0, -3.5, 2] }, { elem: 'O', pos: [1.1, -2.7, 2] }], bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [3, 6], [4, 8]] },
+            'rna': { category: 'Makromolekul', name: 'RNA (Single Strand Fragment)', desc: 'Utusan genetik dan struktur seluler.', atoms: [{ elem: 'P', pos: [0, 0, 0] }, { elem: 'O', pos: [1, 1, 0] }, { elem: 'C', pos: [2, 0, 0] }, { elem: 'C', pos: [1.5, -1.5, 0] }, { elem: 'O', pos: [0, -1.5, 0] }, { elem: 'C', pos: [-0.5, -0.5, 0] }], bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]] },
+            'cellulose': { category: 'Makromolekul', name: 'Selulosa (Fragmen)', desc: 'Polisakarida penyusun dinding sel tumbuhan.', atoms: [{ elem: 'O', pos: [0, 0, 0] }, { elem: 'C', pos: [1.3, 0.3, 0] }, { elem: 'C', pos: [2.4, -0.6, 0] }, { elem: 'O', pos: [3.7, -0.3, 0] }, { elem: 'C', pos: [4.8, -1.2, 0] }, { elem: 'C', pos: [5.9, -0.3, 0] }, { elem: 'O', pos: [7.2, -0.6, 0] }], bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] },
+            'starch': { category: 'Makromolekul', name: 'Pati/Amilum (Fragmen)', desc: 'Polimer glukosa sebagai cadangan energi.', atoms: [{ elem: 'O', pos: [0, 0, 0] }, { elem: 'C', pos: [1.2, 0.5, 0] }, { elem: 'C', pos: [2, 1.6, 0] }, { elem: 'O', pos: [3.3, 1.1, 0] }, { elem: 'C', pos: [4.5, 1.6, 0] }, { elem: 'C', pos: [5.3, 0.5, 0] }, { elem: 'O', pos: [6.6, 1.0, 0] }], bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] }
+        };
+
+        // --- VARIABEL GLOBAL ---
+        let scene, camera, renderer, controls;
+        let moleculeGroup;
+        let activeMoleculeId = 'h2o';
+        let visualMode = 'ball-and-stick';
+        let appMode = 'viewer';
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let targetAtomMesh = null;
+        let isAnnotationVisible = false;
+        let typingTimeout;
+        let simTimeouts = [];
+
+        let pointerDownPos = { x: 0, y: 0 };
+        let isDragging = false;
+        let isPointerDownOnCanvas = false;
+
+        let currentQuizAnswerId = '';
+        let currentBuilderElem = 'C';
+
+        // --- INISIALISASI ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111827);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 8);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            renderer.xr.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            setupCustomARButton(renderer);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight1.position.set(5, 5, 5);
+            scene.add(directionalLight1);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 1.0;
+            controls.minDistance = 3;
+            controls.maxDistance = 25;
+
+            moleculeGroup = new THREE.Group();
+            scene.add(moleculeGroup);
+
+            renderer.xr.addEventListener('sessionstart', () => {
+                scene.background = null;
+                moleculeGroup.position.set(0, 0, -1);
+                moleculeGroup.scale.set(0.2, 0.2, 0.2);
+                controls.enabled = false;
+                hideAnnotation();
+                document.getElementById('ui-layer').style.display = 'none';
+                document.getElementById('mobile-hints').style.display = 'none';
+            });
+            renderer.xr.addEventListener('sessionend', () => {
+                scene.background = new THREE.Color(0x111827);
+                moleculeGroup.position.set(0, 0, 0);
+                moleculeGroup.scale.set(1, 1, 1);
+                controls.enabled = true;
+                document.getElementById('ui-layer').style.display = 'flex';
+                document.getElementById('mobile-hints').style.display = 'flex';
+                camera.position.set(0, 0, 8);
+            });
+
+            buildMenu();
+            loadMolecule('h2o');
+
+            window.addEventListener('resize', onWindowResize, false);
+            const canvas = renderer.domElement;
+            canvas.addEventListener('pointerdown', onPointerDown, false);
+            window.addEventListener('pointerup', onPointerUp, false);
+
+            renderer.setAnimationLoop(animate);
+        }
+
+        // --- SISTEM AR BUTTON KUSTOM ---
+        function setupCustomARButton(renderer) {
+            // Cek di GAS (iframe) seringkali navigator.xr tidak langsung muncul atau butuh gesture
+            const showARNotSupported = () => {
+                const btn = document.createElement('button');
+                btn.id = 'ARButton';
+                btn.textContent = '📵 AR Tidak Tersedia';
+                btn.style.opacity = '0.6';
+                btn.onclick = () => alert('Browser atau perangkat Anda tidak mendukung WebXR/AR, atau izin ditolak.');
+                document.body.appendChild(btn);
+            };
+
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        const btn = document.createElement('button');
+                        btn.id = 'ARButton';
+                        btn.textContent = '🌟 Mulai AR';
+
+                        let currentSession = null;
+
+                        function onSessionStarted(session) {
+                            session.addEventListener('end', onSessionEnded);
+                            renderer.xr.setSession(session);
+                            btn.textContent = '✖ Keluar AR';
+                            currentSession = session;
+                        }
+
+                        function onSessionEnded() {
+                            currentSession.removeEventListener('end', onSessionEnded);
+                            btn.textContent = '🌟 Mulai AR';
+                            currentSession = null;
+                        }
+
+                        btn.addEventListener('click', () => {
+                            if (currentSession === null) {
+                                navigator.xr.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'bounded-floor'] })
+                                    .then(onSessionStarted)
+                                    .catch(err => {
+                                        console.error(err);
+                                        alert('Gagal memulai AR: ' + err.message);
+                                    });
+                            } else {
+                                currentSession.end();
+                            }
+                        });
+
+                        document.body.appendChild(btn);
+                    } else {
+                        showARNotSupported();
+                    }
+                }).catch(() => showARNotSupported());
+            } else {
+                showARNotSupported();
+            }
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById('main-menu');
+            const text = document.getElementById('toggle-text');
+            const icon = document.getElementById('toggle-icon');
+            const isMinimized = menu.classList.toggle('minimized');
+
+            if (isMinimized) {
+                text.innerText = 'Tampilkan Menu';
+                icon.innerText = '▲';
+            } else {
+                text.innerText = 'Sembunyikan Menu';
+                icon.innerText = '▼';
+            }
+        }
+
+        // --- LOGIKA INPUT (KLIK/GESER/RAKIT) ---
+        function onPointerDown(event) {
+            if (event.target !== renderer.domElement) return;
+            isPointerDownOnCanvas = true;
+            pointerDownPos.x = event.clientX;
+            pointerDownPos.y = event.clientY;
+            isDragging = false;
+        }
+
+        function onPointerUp(event) {
+            if (!isPointerDownOnCanvas) return;
+            isPointerDownOnCanvas = false;
+
+            const dx = Math.abs(event.clientX - pointerDownPos.x);
+            const dy = Math.abs(event.clientY - pointerDownPos.y);
+
+            if (dx > 10 || dy > 10) {
+                isDragging = true;
+                return;
+            }
+
+            handleRaycast(event.clientX, event.clientY);
+        }
+
+        function handleRaycast(clientX, clientY) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(moleculeGroup.children);
+
+            if (appMode === 'viewer' || appMode === 'quiz') {
+                if (intersects.length > 0) {
+                    let atomFound = false;
+                    for (let i = 0; i < intersects.length; i++) {
+                        if (intersects[i].object.userData && intersects[i].object.userData.type === 'atom') {
+                            targetAtomMesh = intersects[i].object;
+                            if (appMode === 'viewer') showAnnotation();
+                            atomFound = true;
+                            break;
+                        }
+                    }
+                    if (!atomFound) hideAnnotation();
+                } else {
+                    hideAnnotation();
+                }
+            }
+            else if (appMode === 'builder') {
+                if (intersects.length > 0) {
+                    const clickedObj = intersects[0].object;
+                    if (clickedObj.userData.type === 'atom') {
+                        const normal = intersects[0].face.normal.clone().transformDirection(clickedObj.matrixWorld);
+                        const distance = (ELEMENTS[currentBuilderElem].radius + clickedObj.scale.x) * 1.5;
+                        const newPos = clickedObj.position.clone().add(normal.multiplyScalar(distance));
+                        addBuilderAtom(newPos, clickedObj);
+                    }
+                } else {
+                    if (moleculeGroup.children.length === 0) {
+                        addBuilderAtom(new THREE.Vector3(0, 0, 0), null);
+                    }
+                }
+            }
+        }
+
+        // --- MANAJEMEN GRUP ---
+        function clearGroup() {
+            simTimeouts.forEach(t => clearTimeout(t)); simTimeouts = [];
+            const existingFlash = document.getElementById('sim-flash');
+            if (existingFlash) existingFlash.remove();
+            while (moleculeGroup.children.length > 0) {
+                const child = moleculeGroup.children[0];
+                moleculeGroup.remove(child);
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            }
+            hideAnnotation();
+        }
+
+        function animateEntrance() {
+            moleculeGroup.rotation.set(0, 0, 0);
+            moleculeGroup.scale.set(0.01, 0.01, 0.01);
+            let scale = 0.01;
+            const grow = () => {
+                scale += (1 - scale) * 0.1;
+                moleculeGroup.scale.set(scale, scale, scale);
+                if (scale < 0.99) requestAnimationFrame(grow);
+                else moleculeGroup.scale.set(1, 1, 1);
+            };
+            grow();
+        }
+
+        function buildMoleculeData(data, offsetX = 0) {
+            const localAtomMeshes = [];
+            const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+            const radiusMultiplier = (visualMode === 'space-filling') ? 1.8 : 1.0;
+
+            data.atoms.forEach(atomData => {
+                const elemInfo = ELEMENTS[atomData.elem];
+                const material = new THREE.MeshStandardMaterial({ color: elemInfo.color, roughness: 0.3, metalness: 0.1 });
+                const sphere = new THREE.Mesh(sphereGeo, material);
+                sphere.userData = { type: 'atom', name: elemInfo.name, symbol: atomData.elem, desc: elemInfo.desc };
+                sphere.position.set(atomData.pos[0] + offsetX, atomData.pos[1], atomData.pos[2]);
+                const r = elemInfo.radius * radiusMultiplier;
+                sphere.scale.set(r, r, r);
+                moleculeGroup.add(sphere);
+                localAtomMeshes.push(sphere);
+            });
+
+            if (visualMode === 'ball-and-stick' && data.bonds) {
+                const cylMaterial = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.4, metalness: 0.2 });
+                data.bonds.forEach(bond => {
+                    const atom1 = localAtomMeshes[bond[0]];
+                    const atom2 = localAtomMeshes[bond[1]];
+                    const distance = atom1.position.distanceTo(atom2.position);
+                    const cylGeo = new THREE.CylinderGeometry(0.12, 0.12, distance, 16);
+                    const cylinder = new THREE.Mesh(cylGeo, cylMaterial);
+                    cylinder.userData = { type: 'bond' };
+                    const midpoint = new THREE.Vector3().addVectors(atom1.position, atom2.position).multiplyScalar(0.5);
+                    cylinder.position.copy(midpoint);
+                    cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().subVectors(atom2.position, atom1.position).normalize());
+                    moleculeGroup.add(cylinder);
+                });
+            }
+        }
+
+        // --- MODE VIEWER (NORMAL, PERBANDINGAN, SIMULASI) ---
+        function toggleVisualMode() {
+            visualMode = (visualMode === 'ball-and-stick') ? 'space-filling' : 'ball-and-stick';
+            const textDesktop = document.getElementById('visual-text-desktop');
+            const iconDesktop = document.getElementById('visual-icon-desktop');
+            const iconMobile = document.getElementById('visual-icon-mobile');
+
+            if (visualMode === 'space-filling') {
+                if (textDesktop) textDesktop.innerText = 'Model: Padat (Space)';
+                if (iconDesktop) iconDesktop.innerText = '☁️';
+                if (iconMobile) iconMobile.innerText = '☁️ Padat';
+            } else {
+                if (textDesktop) textDesktop.innerText = 'Model: Bola & Tongkat';
+                if (iconDesktop) iconDesktop.innerText = '🔴';
+                if (iconMobile) iconMobile.innerText = '🔴 Bola';
+            }
+
+            if (appMode === 'quiz') return;
+
+            if (activeMoleculeId.startsWith('comp_')) {
+                const parts = activeMoleculeId.split('_');
+                loadComparison(parts[1], parts[2]);
+            } else if (activeMoleculeId === 'sim_water') {
+                runWaterSimulation();
+            } else if (activeMoleculeId === 'sim_methane') {
+                runMethaneCombustionSimulation();
+            } else {
+                loadMolecule(activeMoleculeId);
+            }
+        }
+
+        function loadMolecule(id) {
+            if (appMode !== 'viewer') return;
+            clearGroup();
+            activeMoleculeId = id;
+            document.getElementById('molecule-desc').innerHTML = MOLECULES[id].desc;
+            updateMenuUI();
+            camera.position.set(0, 0, 8);
+            buildMoleculeData(MOLECULES[id], 0);
+            animateEntrance();
+            controls.autoRotate = true;
+        }
+
+        function loadComparison(id1, id2) {
+            if (appMode !== 'viewer') return;
+            clearGroup();
+            activeMoleculeId = `comp_${id1}_${id2}`;
+            document.getElementById('molecule-desc').innerHTML = `<b>⚖️ Perbandingan:</b> ${MOLECULES[id1].name} (Kiri) vs ${MOLECULES[id2].name} (Kanan).`;
+            updateMenuUI();
+            camera.position.set(0, 0, 12);
+            buildMoleculeData(MOLECULES[id1], -3.0);
+            buildMoleculeData(MOLECULES[id2], 3.0);
+            animateEntrance();
+            controls.autoRotate = true;
+        }
+
+        // --- SISTEM PERBANDINGAN KUSTOM (BARU) ---
+        function startCustomCompare() {
+            appMode = 'compare_select';
+            hideAnnotation();
+
+            const leftSelect = document.getElementById('compare-left');
+            const rightSelect = document.getElementById('compare-right');
+
+            // Masukkan data molekul ke dropdown jika belum ada
+            if (leftSelect.options.length === 0) {
+                Object.keys(MOLECULES).forEach(id => {
+                    leftSelect.add(new Option(MOLECULES[id].name, id));
+                    rightSelect.add(new Option(MOLECULES[id].name, id));
+                });
+                leftSelect.value = 'h2o';
+                rightSelect.value = 'ch4';
+            }
+
+            // Sembunyikan UI utama dengan transisi halus
+            document.getElementById('ui-layer').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('mobile-hints').classList.add('hidden');
+            setTimeout(() => { document.getElementById('ui-layer').style.display = 'none'; }, 300);
+
+            // Munculkan panel pilihan
+            document.getElementById('compare-ui').classList.remove('hidden');
+            document.getElementById('compare-ui').classList.add('flex');
+        }
+
+        function executeCustomCompare() {
+            const leftId = document.getElementById('compare-left').value;
+            const rightId = document.getElementById('compare-right').value;
+
+            exitCustomCompareUI();
+            loadComparison(leftId, rightId);
+        }
+
+        function exitCustomCompare() {
+            exitCustomCompareUI();
+        }
+
+        function exitCustomCompareUI() {
+            appMode = 'viewer';
+            document.getElementById('compare-ui').classList.add('hidden');
+            document.getElementById('compare-ui').classList.remove('flex');
+
+            document.getElementById('ui-layer').style.display = 'flex';
+            document.getElementById('mobile-hints').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('ui-layer').classList.remove('opacity-0', 'pointer-events-none'); }, 50);
+        }
+
+        function runWaterSimulation() {
+            if (appMode !== 'viewer') return;
+            clearGroup();
+            activeMoleculeId = 'sim_water';
+            updateMenuUI();
+            controls.autoRotate = false;
+            camera.position.set(0, 0, 10);
+
+            const radiusMultiplier = (visualMode === 'space-filling') ? 1.8 : 1.0;
+            const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+
+            // Fungsi bantuan untuk membuat atom individual dan mencatat rute target gerakannya
+            function createAtom(elem, startPos, targetPos) {
+                const info = ELEMENTS[elem];
+                const mat = new THREE.MeshStandardMaterial({ color: info.color, roughness: 0.3, metalness: 0.1 });
+                const mesh = new THREE.Mesh(sphereGeo, mat);
+                const r = info.radius * radiusMultiplier;
+                mesh.scale.set(r, r, r);
+                mesh.position.fromArray(startPos);
+                mesh.userData = { type: 'atom', name: info.name, symbol: elem, desc: info.desc };
+                moleculeGroup.add(mesh);
+                return { mesh, start: new THREE.Vector3(...startPos), target: new THREE.Vector3(...targetPos) };
+            }
+
+            // Fungsi bantuan untuk membuat garis silinder ikatan antar atom
+            function createBond(mesh1, mesh2) {
+                if (visualMode !== 'ball-and-stick') return null;
+                const distance = mesh1.position.distanceTo(mesh2.position);
+                const geo = new THREE.CylinderGeometry(0.12, 0.12, distance, 16);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.4 });
+                const cyl = new THREE.Mesh(geo, mat);
+                cyl.userData = { type: 'bond' };
+
+                const midpoint = new THREE.Vector3().addVectors(mesh1.position, mesh2.position).multiplyScalar(0.5);
+                cyl.position.copy(midpoint);
+                cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().subVectors(mesh2.position, mesh1.position).normalize());
+                moleculeGroup.add(cyl);
+                return cyl;
+            }
+
+            // Oksigen (O2) -> Membelah ke 2 posisi pusat molekul Air
+            const atoms = [];
+            atoms.push(createAtom('O', [-0.6, 1.5, 0], [-2.0, 0, 0])); // O1 bergerak ke Kiri
+            atoms.push(createAtom('O', [0.6, 1.5, 0], [2.0, 0, 0]));   // O2 bergerak ke Kanan
+
+            // Hidrogen Pertama (H2) -> Menuju ke sisi O1 Kiri
+            atoms.push(createAtom('H', [-2.4, -1.5, 0], [-2.8, -0.6, 0]));
+            atoms.push(createAtom('H', [-1.6, -1.5, 0], [-1.2, -0.6, 0]));
+
+            // Hidrogen Kedua (H2) -> Menuju ke sisi O2 Kanan
+            atoms.push(createAtom('H', [1.6, -1.5, 0], [1.2, -0.6, 0]));
+            atoms.push(createAtom('H', [2.4, -1.5, 0], [2.8, -0.6, 0]));
+
+            let initialBonds = [];
+            initialBonds.push(createBond(atoms[0].mesh, atoms[1].mesh)); // Ikatan O-O
+            initialBonds.push(createBond(atoms[2].mesh, atoms[3].mesh)); // Ikatan H-H Kiri
+            initialBonds.push(createBond(atoms[4].mesh, atoms[5].mesh)); // Ikatan H-H Kanan
+            initialBonds = initialBonds.filter(b => b !== null);
+
+            document.getElementById('molecule-desc').innerHTML = "<b>Tahap 1:</b> Reaktan (1 O₂ & 2 H₂) bersiap bereaksi...";
+
+            // Animasi Entrance skala
+            moleculeGroup.scale.set(0.01, 0.01, 0.01);
+            let s = 0.01;
+            const grow = () => { s += (1 - s) * 0.1; moleculeGroup.scale.set(s, s, s); if (s < 0.99) requestAnimationFrame(grow); else moleculeGroup.scale.set(1, 1, 1); };
+            grow();
+
+            simTimeouts.push(setTimeout(() => {
+                document.getElementById('molecule-desc').innerHTML = "<b>Tahap 2:</b> Tumbukan! Energi memutus ikatan reaktan...";
+
+                // Menghilangkan ikatan lama (putusnya ikatan)
+                initialBonds.forEach(b => {
+                    moleculeGroup.remove(b);
+                    if (b.geometry) b.geometry.dispose();
+                    if (b.material) b.material.dispose();
+                });
+
+                // Kilatan kecil pertanda tumbukan energi
+                const flash = document.createElement('div');
+                flash.id = 'sim-flash';
+                flash.className = 'fixed top-0 left-0 w-full h-full bg-sky-200 z-50 transition-opacity duration-300 pointer-events-none opacity-0 mix-blend-overlay';
+                document.body.appendChild(flash);
+                void flash.offsetWidth;
+                flash.classList.remove('opacity-0');
+                flash.classList.add('opacity-30'); // Dibuat lebih lembut (tidak silau putih murni)
+                setTimeout(() => {
+                    flash.classList.remove('opacity-30');
+                    flash.classList.add('opacity-0');
+                    setTimeout(() => flash.remove(), 300);
+                }, 150);
+
+                // TAHAP 3: Animasi perpindahan posisi yang halus (Easing)
+                let progress = 0;
+                const animDuration = 120; // 120 frame / sekitar 2 detik gerakan mulus
+
+                function animateMovement() {
+                    // Batalkan jika pengguna mengganti menu di tengah jalan
+                    if (activeMoleculeId !== 'sim_water') return;
+
+                    progress++;
+                    const t = progress / animDuration;
+
+                    // Cubic ease-in-out agar gerakannya natural
+                    const easeT = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+                    // Interpolasi posisi lama ke baru
+                    atoms.forEach(a => {
+                        a.mesh.position.lerpVectors(a.start, a.target, easeT);
+                    });
+
+                    if (progress < animDuration) {
+                        requestAnimationFrame(animateMovement);
+                    } else {
+                        // Jika sudah di posisi target, munculkan ikatan molekul yang baru
+                        document.getElementById('molecule-desc').innerHTML = "<b>Tahap 3:</b> Hasil Reaksi: 2 Molekul Air (H₂O) terbentuk stabil.";
+                        createBond(atoms[0].mesh, atoms[2].mesh);
+                        createBond(atoms[0].mesh, atoms[3].mesh);
+                        createBond(atoms[1].mesh, atoms[4].mesh);
+                        createBond(atoms[1].mesh, atoms[5].mesh);
+                        controls.autoRotate = true;
+                    }
+                }
+
+                // Beri jeda sepersekian detik usai putus ikatan, baru atom mulai bergerak
+                simTimeouts.push(setTimeout(() => {
+                    requestAnimationFrame(animateMovement);
+                }, 400));
+
+            }, 2500));
+        }
+
+        function runMethaneCombustionSimulation() {
+            if (appMode !== 'viewer') return;
+            clearGroup();
+            activeMoleculeId = 'sim_methane';
+            updateMenuUI();
+            controls.autoRotate = false;
+            camera.position.set(0, 0, 12); // Mundurkan sedikit karena molekulnya menyebar luas
+
+            const radiusMultiplier = (visualMode === 'space-filling') ? 1.8 : 1.0;
+            const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+
+            function createAtom(elem, startPos, targetPos) {
+                const info = ELEMENTS[elem];
+                const mat = new THREE.MeshStandardMaterial({ color: info.color, roughness: 0.3, metalness: 0.1 });
+                const mesh = new THREE.Mesh(sphereGeo, mat);
+                const r = info.radius * radiusMultiplier;
+                mesh.scale.set(r, r, r);
+                mesh.position.fromArray(startPos);
+                mesh.userData = { type: 'atom', name: info.name, symbol: elem, desc: info.desc };
+                moleculeGroup.add(mesh);
+                return { mesh, start: new THREE.Vector3(...startPos), target: new THREE.Vector3(...targetPos) };
+            }
+
+            function createBond(mesh1, mesh2) {
+                if (visualMode !== 'ball-and-stick') return null;
+                const distance = mesh1.position.distanceTo(mesh2.position);
+                const geo = new THREE.CylinderGeometry(0.12, 0.12, distance, 16);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.4 });
+                const cyl = new THREE.Mesh(geo, mat);
+                cyl.userData = { type: 'bond' };
+                const midpoint = new THREE.Vector3().addVectors(mesh1.position, mesh2.position).multiplyScalar(0.5);
+                cyl.position.copy(midpoint);
+                cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().subVectors(mesh2.position, mesh1.position).normalize());
+                moleculeGroup.add(cyl);
+                return cyl;
+            }
+
+            const atoms = [];
+            // Reaktan 1: Metana (CH4)
+            atoms.push(createAtom('C', [-2, 0, 0], [0, 0, 0])); // C pindah ke tengah jadi CO2
+            atoms.push(createAtom('H', [-2 + 0.65, 0.65, 0.65], [-1.7, 1.9, 0])); // H jadi bagian Air 1
+            atoms.push(createAtom('H', [-2 - 0.65, -0.65, 0.65], [-3.3, 1.9, 0])); // H jadi bagian Air 1
+            atoms.push(createAtom('H', [-2 - 0.65, 0.65, -0.65], [3.3, -3.1, 0])); // H jadi bagian Air 2
+            atoms.push(createAtom('H', [-2 + 0.65, -0.65, -0.65], [1.7, -3.1, 0])); // H jadi bagian Air 2
+
+            // Reaktan 2: Oksigen 1 (O2)
+            atoms.push(createAtom('O', [2, 2.1, 0], [1.3, 0, 0])); // O jadi bagian CO2
+            atoms.push(createAtom('O', [2, 0.9, 0], [-1.3, 0, 0])); // O jadi bagian CO2
+
+            // Reaktan 3: Oksigen 2 (O2)
+            atoms.push(createAtom('O', [2, -0.9, 0], [-2.5, 2.5, 0])); // O jadi pusat Air 1
+            atoms.push(createAtom('O', [2, -2.1, 0], [2.5, -2.5, 0])); // O jadi pusat Air 2
+
+            let initialBonds = [];
+            // Ikatan CH4
+            initialBonds.push(createBond(atoms[0].mesh, atoms[1].mesh));
+            initialBonds.push(createBond(atoms[0].mesh, atoms[2].mesh));
+            initialBonds.push(createBond(atoms[0].mesh, atoms[3].mesh));
+            initialBonds.push(createBond(atoms[0].mesh, atoms[4].mesh));
+            // Ikatan 2 O2
+            initialBonds.push(createBond(atoms[5].mesh, atoms[6].mesh));
+            initialBonds.push(createBond(atoms[7].mesh, atoms[8].mesh));
+            initialBonds = initialBonds.filter(b => b !== null);
+
+            document.getElementById('molecule-desc').innerHTML = "<b>Tahap 1:</b> Reaktan bersiap (1 Metana & 2 Gas Oksigen) di udara...";
+
+            moleculeGroup.scale.set(0.01, 0.01, 0.01);
+            let s = 0.01;
+            const grow = () => { s += (1 - s) * 0.1; moleculeGroup.scale.set(s, s, s); if (s < 0.99) requestAnimationFrame(grow); else moleculeGroup.scale.set(1, 1, 1); };
+            grow();
+
+            simTimeouts.push(setTimeout(() => {
+                document.getElementById('molecule-desc').innerHTML = "<b>Tahap 2:</b> Api/Panas memicu pembakaran! Ikatan hidrokarbon terputus...";
+
+                initialBonds.forEach(b => {
+                    moleculeGroup.remove(b);
+                    if (b.geometry) b.geometry.dispose();
+                    if (b.material) b.material.dispose();
+                });
+
+                // Efek kilatan api (oranye/merah)
+                const flash = document.createElement('div');
+                flash.id = 'sim-flash';
+                flash.className = 'fixed top-0 left-0 w-full h-full bg-orange-500 z-50 transition-opacity duration-300 pointer-events-none opacity-0 mix-blend-overlay';
+                document.body.appendChild(flash);
+                void flash.offsetWidth;
+                flash.classList.remove('opacity-0');
+                flash.classList.add('opacity-40');
+                setTimeout(() => {
+                    flash.classList.remove('opacity-40');
+                    flash.classList.add('opacity-0');
+                    setTimeout(() => flash.remove(), 300);
+                }, 200);
+
+                let progress = 0;
+                const animDuration = 150; // Sedikit lebih lama karena partikelnya banyak (2.5 detik)
+
+                function animateMovement() {
+                    if (activeMoleculeId !== 'sim_methane') return;
+
+                    progress++;
+                    const t = progress / animDuration;
+                    const easeT = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+                    atoms.forEach(a => {
+                        a.mesh.position.lerpVectors(a.start, a.target, easeT);
+                    });
+
+                    if (progress < animDuration) {
+                        requestAnimationFrame(animateMovement);
+                    } else {
+                        document.getElementById('molecule-desc').innerHTML = "<b>Tahap 3:</b> Hasil Reaksi: 1 Karbon Dioksida (CO₂) & 2 Molekul Air (H₂O).";
+                        // Ikatan CO2
+                        createBond(atoms[0].mesh, atoms[5].mesh);
+                        createBond(atoms[0].mesh, atoms[6].mesh);
+                        // Ikatan H2O (1)
+                        createBond(atoms[7].mesh, atoms[1].mesh);
+                        createBond(atoms[7].mesh, atoms[2].mesh);
+                        // Ikatan H2O (2)
+                        createBond(atoms[8].mesh, atoms[3].mesh);
+                        createBond(atoms[8].mesh, atoms[4].mesh);
+
+                        controls.autoRotate = true;
+                    }
+                }
+
+                simTimeouts.push(setTimeout(() => {
+                    requestAnimationFrame(animateMovement);
+                }, 400));
+
+            }, 2500));
+        }
+
+        // --- MODE KUIS (TEBAK MOLEKUL) ---
+        function startQuiz() {
+            appMode = 'quiz';
+            hideAnnotation();
+            document.getElementById('ui-layer').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('mobile-hints').classList.add('hidden');
+            setTimeout(() => { document.getElementById('ui-layer').style.display = 'none'; }, 300);
+
+            document.getElementById('quiz-ui').classList.remove('hidden');
+            document.getElementById('quiz-ui').classList.add('flex');
+
+            nextQuizQuestion();
+        }
+
+        function nextQuizQuestion() {
+            clearGroup();
+            document.getElementById('quiz-feedback').classList.add('hidden');
+
+            const allKeys = Object.keys(MOLECULES);
+            const correctKey = allKeys[Math.floor(Math.random() * allKeys.length)];
+            currentQuizAnswerId = correctKey;
+
+            let options = [correctKey];
+            while (options.length < 4) {
+                let randomKey = allKeys[Math.floor(Math.random() * allKeys.length)];
+                if (!options.includes(randomKey)) options.push(randomKey);
+            }
+            options.sort(() => Math.random() - 0.5);
+
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "bg-gray-800 hover:bg-amber-600/80 border border-amber-500/50 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors text-sm";
+                const nameOnly = MOLECULES[opt].name.split(' (')[0];
+                btn.innerText = nameOnly;
+                btn.onclick = () => checkQuizAnswer(opt, btn);
+                optionsContainer.appendChild(btn);
+            });
+
+            camera.position.set(0, 0, 8);
+            buildMoleculeData(MOLECULES[correctKey], 0);
+            animateEntrance();
+            controls.autoRotate = true;
+        }
+
+        function checkQuizAnswer(selectedKey, btnElement) {
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+
+            const buttons = document.getElementById('quiz-options').querySelectorAll('button');
+            buttons.forEach(b => b.disabled = true);
+
+            if (selectedKey === currentQuizAnswerId) {
+                btnElement.classList.replace('bg-gray-800', 'bg-emerald-500');
+                btnElement.classList.replace('hover:bg-amber-600/80', 'bg-emerald-500');
+                feedback.innerHTML = `✅ Benar! Itu adalah ${MOLECULES[currentQuizAnswerId].name}`;
+                feedback.className = "text-xs mt-2 font-bold text-emerald-400";
+            } else {
+                btnElement.classList.replace('bg-gray-800', 'bg-red-500');
+                buttons.forEach(b => {
+                    if (b.innerText === MOLECULES[currentQuizAnswerId].name.split(' (')[0]) {
+                        b.classList.replace('bg-gray-800', 'bg-emerald-500/50');
+                    }
+                });
+                feedback.innerHTML = `❌ Salah! Jawaban yang benar adalah ${MOLECULES[currentQuizAnswerId].name}`;
+                feedback.className = "text-xs mt-2 font-bold text-red-400";
+            }
+
+            setTimeout(nextQuizQuestion, 2500);
+        }
+
+        function exitQuiz() {
+            appMode = 'viewer';
+            document.getElementById('quiz-ui').classList.add('hidden');
+            document.getElementById('quiz-ui').classList.remove('flex');
+
+            document.getElementById('ui-layer').style.display = 'flex';
+            document.getElementById('mobile-hints').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('ui-layer').classList.remove('opacity-0', 'pointer-events-none'); }, 50);
+
+            loadMolecule('h2o');
+        }
+
+        // --- MODE RAKIT (BUILDER) ---
+        function startBuilder() {
+            appMode = 'builder';
+            hideAnnotation();
+            document.getElementById('ui-layer').classList.add('opacity-0', 'pointer-events-none');
+            document.getElementById('mobile-hints').classList.add('hidden');
+            setTimeout(() => { document.getElementById('ui-layer').style.display = 'none'; }, 300);
+
+            document.getElementById('builder-ui').classList.remove('hidden');
+            document.getElementById('builder-ui').classList.add('flex');
+
+            visualMode = 'ball-and-stick';
+            document.getElementById('visual-text-desktop').innerText = 'Model: Bola & Tongkat';
+            document.getElementById('visual-icon-desktop').innerText = '🔴';
+
+            clearBuilder();
+            setBuilderElement('C');
+            controls.autoRotate = false;
+        }
+
+        function setBuilderElement(elem) {
+            currentBuilderElem = elem;
+            document.querySelectorAll('.build-elem').forEach(btn => {
+                btn.classList.remove('border-emerald-500');
+                btn.classList.add('border-transparent');
+            });
+            document.getElementById(`build-btn-${elem}`).classList.remove('border-transparent');
+            document.getElementById(`build-btn-${elem}`).classList.add('border-emerald-500');
+        }
+
+        function addBuilderAtom(position, parentAtomMesh) {
+            const elemInfo = ELEMENTS[currentBuilderElem];
+            const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ color: elemInfo.color, roughness: 0.3, metalness: 0.1 });
+            const sphere = new THREE.Mesh(sphereGeo, material);
+
+            sphere.userData = { type: 'atom', name: elemInfo.name, symbol: currentBuilderElem };
+            sphere.position.copy(position);
+            sphere.scale.set(elemInfo.radius, elemInfo.radius, elemInfo.radius);
+
+            sphere.scale.multiplyScalar(0.01);
+            let s = 0.01;
+            const grow = () => { s += (1 - s) * 0.2; sphere.scale.set(elemInfo.radius * s, elemInfo.radius * s, elemInfo.radius * s); if (s < 0.99) requestAnimationFrame(grow); };
+            grow();
+
+            moleculeGroup.add(sphere);
+
+            if (parentAtomMesh) {
+                const distance = position.distanceTo(parentAtomMesh.position);
+                const cylGeo = new THREE.CylinderGeometry(0.12, 0.12, distance, 16);
+                const cylMaterial = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.4 });
+                const cylinder = new THREE.Mesh(cylGeo, cylMaterial);
+                cylinder.userData = { type: 'bond' };
+
+                const midpoint = new THREE.Vector3().addVectors(position, parentAtomMesh.position).multiplyScalar(0.5);
+                cylinder.position.copy(midpoint);
+                cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().subVectors(parentAtomMesh.position, position).normalize());
+                moleculeGroup.add(cylinder);
+            }
+        }
+
+        function clearBuilder() {
+            clearGroup();
+        }
+
+        function exitBuilder() {
+            appMode = 'viewer';
+            document.getElementById('builder-ui').classList.add('hidden');
+            document.getElementById('builder-ui').classList.remove('flex');
+
+            document.getElementById('ui-layer').style.display = 'flex';
+            document.getElementById('mobile-hints').classList.remove('hidden');
+            setTimeout(() => { document.getElementById('ui-layer').classList.remove('opacity-0', 'pointer-events-none'); }, 50);
+
+            loadMolecule('h2o');
+        }
+
+        // --- ANOTASI ---
+        function showAnnotation() {
+            if (!targetAtomMesh || !targetAtomMesh.userData) return;
+            controls.autoRotate = false;
+            const atomData = targetAtomMesh.userData;
+            isAnnotationVisible = true;
+
+            const layer = document.getElementById('annotation-layer');
+            layer.classList.remove('opacity-0'); layer.classList.add('opacity-100');
+            document.getElementById('annotation-title').innerText = `${atomData.name} (${atomData.symbol})`;
+            typeWriter(document.getElementById('annotation-text'), atomData.desc, 30);
+            updateAnnotationPosition();
+        }
+
+        function hideAnnotation() {
+            isAnnotationVisible = false;
+            targetAtomMesh = null;
+            document.getElementById('annotation-layer').classList.remove('opacity-100');
+            document.getElementById('annotation-layer').classList.add('opacity-0');
+            clearTimeout(typingTimeout);
+
+            if (appMode === 'viewer' && activeMoleculeId !== 'sim_water' && activeMoleculeId !== 'sim_methane') {
+                if (controls) controls.autoRotate = true;
+            }
+        }
+
+        function typeWriter(element, text, speed) {
+            element.innerHTML = ''; let i = 0; clearTimeout(typingTimeout);
+            function type() { if (i < text.length) { element.innerHTML += text.charAt(i); i++; typingTimeout = setTimeout(type, speed); } }
+            type();
+        }
+
+        function updateAnnotationPosition() {
+            if (!isAnnotationVisible || !targetAtomMesh) return;
+            const pos = new THREE.Vector3(); targetAtomMesh.getWorldPosition(pos); pos.project(camera);
+            if (pos.z > 1) { document.getElementById('annotation-layer').style.display = 'none'; return; }
+            else { document.getElementById('annotation-layer').style.display = 'block'; }
+
+            const x = (pos.x * 0.5 + 0.5) * window.innerWidth; const y = (pos.y * -0.5 + 0.5) * window.innerHeight;
+            const line = document.getElementById('annotation-line'); const dot = document.getElementById('annotation-dot'); const box = document.getElementById('annotation-box');
+            dot.setAttribute('cx', x); dot.setAttribute('cy', y); line.setAttribute('x1', x); line.setAttribute('y1', y);
+
+            let boxX = x + (x > window.innerWidth / 2 ? -130 : 130); let boxY = y; let lineTargetY = 0;
+            const boxHalfWidth = 125;
+            if (boxX < boxHalfWidth + 10) boxX = boxHalfWidth + 10; if (boxX > window.innerWidth - boxHalfWidth - 10) boxX = window.innerWidth - boxHalfWidth - 10;
+            if (y < window.innerHeight * 0.4) { boxY = y + 100; box.style.transform = "translate(-50%, 0)"; lineTargetY = boxY; }
+            else { boxY = y - 100; box.style.transform = "translate(-50%, -100%)"; lineTargetY = boxY; }
+
+            box.style.left = boxX + 'px'; box.style.top = boxY + 'px'; line.setAttribute('x2', boxX); line.setAttribute('y2', lineTargetY);
+        }
+
+        // --- MENU GENERATOR ---
+        function createMenuBtn(id, title, desc, onClickFunc, isSpecial = false) {
+            const btn = document.createElement('button');
+            btn.id = `btn-${id}`;
+            const colorClass = isSpecial ? 'hover:bg-amber-600/50 border-amber-500/50 text-amber-100' : 'hover:bg-gray-800 border-transparent text-gray-100';
+            btn.className = `w-full text-left px-4 py-2.5 rounded-xl transition-all duration-200 border ${colorClass} focus:outline-none focus:ring-2 focus:ring-sky-500/50 mb-1.5 active:scale-95`;
+            btn.innerHTML = `<div class="font-bold text-sm">${title}</div><div class="text-[11px] text-gray-400 truncate mt-0.5">${desc}</div>`;
+            btn.onclick = onClickFunc;
+            return btn;
+        }
+
+        function buildMenu() {
+            const container = document.getElementById('molecule-buttons');
+            container.innerHTML = '';
+
+            const categories = [
+                { id: 'Unsur', title: 'Molekul Unsur', color: 'text-sky-400' },
+                { id: 'Senyawa', title: 'Molekul Senyawa', color: 'text-emerald-400' },
+                { id: 'Organik', title: 'Molekul Organik', color: 'text-amber-400' },
+                { id: 'Makromolekul', title: 'Makromolekul', color: 'text-purple-400' }
+            ];
+
+            categories.forEach(cat => {
+                container.insertAdjacentHTML('beforeend', `<div class="text-[10px] font-bold ${cat.color} mt-4 mb-2 uppercase tracking-widest px-1">${cat.title}</div>`);
+                Object.keys(MOLECULES).forEach(id => {
+                    if (MOLECULES[id].category === cat.id) {
+                        container.appendChild(createMenuBtn(id, MOLECULES[id].name, MOLECULES[id].desc, () => loadMolecule(id)));
+                    }
+                });
+            });
+
+            container.insertAdjacentHTML('beforeend', `<div class="text-[10px] font-bold text-gray-500 mt-4 mb-2 uppercase tracking-widest px-1">Perbandingan</div>`);
+            container.appendChild(createMenuBtn('custom_compare', '⚖️ Bandingkan Bebas', 'Pilih 2 molekul untuk disandingkan.', startCustomCompare));
+
+            container.insertAdjacentHTML('beforeend', `<div class="text-[10px] font-bold text-amber-500 mt-4 mb-2 uppercase tracking-widest px-1">Eksperimen (Baru)</div>`);
+            container.appendChild(createMenuBtn('mode_quiz', '🤔 Mode Kuis', 'Uji pengetahuan molekul Anda!', startQuiz, true));
+            container.appendChild(createMenuBtn('mode_builder', '🛠️ Mode Rakit (Beta)', 'Buat molekul Anda sendiri.', startBuilder, true));
+
+            container.insertAdjacentHTML('beforeend', `<div class="text-[10px] font-bold text-gray-500 mt-4 mb-2 uppercase tracking-widest px-1">Simulasi</div>`);
+            container.appendChild(createMenuBtn('sim_water', '🎬 Pembentukan Air', '2H₂ + O₂ → 2H₂O', () => runWaterSimulation()));
+            container.appendChild(createMenuBtn('sim_methane', '🔥 Pembakaran Metana', 'CH₄ + 2O₂ → CO₂ + 2H₂O', () => runMethaneCombustionSimulation()));
+        }
+
+        function updateMenuUI() {
+            document.querySelectorAll('#molecule-buttons button').forEach(btn => {
+                if (!btn.id.includes('mode_')) { // Kuis & Builder tidak perlu reset highlight warna birunya
+                    btn.classList.remove('bg-sky-600/30', 'border-sky-500/50');
+                    btn.classList.add('bg-transparent', 'border-transparent');
+                }
+            });
+
+            let activeBtn = document.getElementById(`btn-${activeMoleculeId}`);
+
+            // Highlight tombol Bandingkan jika sedang dalam mode perbandingan
+            if (activeMoleculeId.startsWith('comp_')) {
+                activeBtn = document.getElementById('btn-custom_compare');
+            }
+
+            if (activeBtn && appMode === 'viewer') {
+                activeBtn.classList.add('bg-sky-600/30', 'border-sky-500/50');
+                activeBtn.classList.remove('bg-transparent', 'border-transparent');
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- TOGGLE DEV CARD ---
+        function toggleDevCard() {
+            const card = document.getElementById('dev-card');
+            const btn = document.getElementById('info-btn');
+            card.classList.toggle('active');
+
+            if (card.classList.contains('active')) {
+                btn.style.transform = 'rotate(180deg) scale(0.9)';
+                btn.innerHTML = '✕';
+                btn.style.color = '#ef4444';
+            } else {
+                btn.style.transform = 'rotate(0deg) scale(1)';
+                btn.innerHTML = 'i';
+                btn.style.color = '#38bdf8';
+            }
+        }
+
+        // Close when clicking outside
+        window.addEventListener('mousedown', (e) => {
+            const container = document.getElementById('dev-info-container');
+            const card = document.getElementById('dev-card');
+            if (container && card && !container.contains(e.target) && card.classList.contains('active')) {
+                toggleDevCard();
+            }
+        });
+
+        function animate() {
+            if (controls && controls.enabled) controls.update();
+            updateAnnotationPosition();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+
+</html>
