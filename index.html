@@ -499,9 +499,10 @@
         let typingTimeout;
         let simTimeouts = [];
 
-        let pointerDownPos = { x: 0, y: 0 };
-        let isDragging = false;
         let isPointerDownOnCanvas = false;
+
+        let lastPointerPos = { x: 0, y: 0 };
+        let lastPinchDistance = 0;
 
         let currentQuizAnswerId = '';
         let currentBuilderElem = 'C';
@@ -542,19 +543,24 @@
 
             renderer.xr.addEventListener('sessionstart', () => {
                 scene.background = null;
-                moleculeGroup.position.set(0, 0, -1);
-                moleculeGroup.scale.set(0.2, 0.2, 0.2);
+                moleculeGroup.position.set(0, 1.2, -3); // Posisi lebih nyaman untuk AR
+                moleculeGroup.scale.set(0.5, 0.5, 0.5);
                 controls.enabled = false;
-                hideAnnotation();
-                document.getElementById('ui-layer').style.display = 'none';
+
+                // Keep UI layer but hide menu unless requested
+                document.getElementById('main-menu').classList.add('minimized');
                 document.getElementById('mobile-hints').style.display = 'none';
+
+                // Ensure annotation layer is ready
+                document.getElementById('annotation-layer').style.pointerEvents = 'none';
             });
             renderer.xr.addEventListener('sessionend', () => {
                 scene.background = new THREE.Color(0x111827);
                 moleculeGroup.position.set(0, 0, 0);
                 moleculeGroup.scale.set(1, 1, 1);
                 controls.enabled = true;
-                document.getElementById('ui-layer').style.display = 'flex';
+
+                document.getElementById('main-menu').classList.remove('minimized');
                 document.getElementById('mobile-hints').style.display = 'flex';
                 camera.position.set(0, 0, 8);
             });
@@ -565,6 +571,7 @@
             window.addEventListener('resize', onWindowResize, false);
             const canvas = renderer.domElement;
             canvas.addEventListener('pointerdown', onPointerDown, false);
+            canvas.addEventListener('pointermove', onPointerMove, false);
             window.addEventListener('pointerup', onPointerUp, false);
 
             renderer.setAnimationLoop(animate);
@@ -642,27 +649,57 @@
             }
         }
 
-        // --- LOGIKA INPUT (KLIK/GESER/RAKIT) ---
+        // --- LOGIKA INPUT (KLIK/GESER/RAKIT/AR INTERACTION) ---
+        let activePointers = new Map();
+
         function onPointerDown(event) {
             if (event.target !== renderer.domElement) return;
             isPointerDownOnCanvas = true;
-            pointerDownPos.x = event.clientX;
-            pointerDownPos.y = event.clientY;
-            isDragging = false;
+            lastPointerPos = { x: event.clientX, y: event.clientY };
+
+            activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+            if (activePointers.size === 2 && renderer.xr.isPresenting) {
+                const pointers = Array.from(activePointers.values());
+                lastPinchDistance = Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+            }
+        }
+
+        function onPointerMove(event) {
+            if (!isPointerDownOnCanvas) return;
+            activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+            if (!renderer.xr.isPresenting) return;
+
+            if (activePointers.size === 1) {
+                // Rotation (Single finger)
+                const dx = event.clientX - lastPointerPos.x;
+                const dy = event.clientY - lastPointerPos.y;
+                moleculeGroup.rotation.y += dx * 0.01;
+                moleculeGroup.rotation.x += dy * 0.01;
+            } else if (activePointers.size === 2) {
+                // Scaling (Pinch)
+                const pointers = Array.from(activePointers.values());
+                const currentDistance = Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+
+                if (lastPinchDistance > 0) {
+                    const factor = currentDistance / lastPinchDistance;
+                    moleculeGroup.scale.multiplyScalar(factor);
+                }
+                lastPinchDistance = currentDistance;
+            }
+
+            lastPointerPos = { x: event.clientX, y: event.clientY };
         }
 
         function onPointerUp(event) {
-            if (!isPointerDownOnCanvas) return;
-            isPointerDownOnCanvas = false;
-
-            const dx = Math.abs(event.clientX - pointerDownPos.x);
-            const dy = Math.abs(event.clientY - pointerDownPos.y);
-
-            if (dx > 10 || dy > 10) {
-                isDragging = true;
-                return;
+            activePointers.delete(event.pointerId);
+            if (activePointers.size === 0) {
+                isPointerDownOnCanvas = false;
+                lastPinchDistance = 0;
             }
 
+            // Jika di AR dan tidak ada pergerakan signifikan, anggap klik
             handleRaycast(event.clientX, event.clientY);
         }
 
@@ -671,7 +708,9 @@
             mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
-            raycaster.setFromCamera(mouse, camera);
+            // Gunakan kamera XR jika sedang aktif
+            const activeCamera = renderer.xr.isPresenting ? renderer.xr.getCamera(camera) : camera;
+            raycaster.setFromCamera(mouse, activeCamera);
             const intersects = raycaster.intersectObjects(moleculeGroup.children);
 
             if (appMode === 'viewer' || appMode === 'quiz') {
@@ -1333,7 +1372,12 @@
 
         function updateAnnotationPosition() {
             if (!isAnnotationVisible || !targetAtomMesh) return;
-            const pos = new THREE.Vector3(); targetAtomMesh.getWorldPosition(pos); pos.project(camera);
+            const activeCamera = renderer.xr.isPresenting ? renderer.xr.getCamera(camera) : camera;
+
+            const pos = new THREE.Vector3();
+            targetAtomMesh.getWorldPosition(pos);
+            pos.project(activeCamera);
+
             if (pos.z > 1) { document.getElementById('annotation-layer').style.display = 'none'; return; }
             else { document.getElementById('annotation-layer').style.display = 'block'; }
 
